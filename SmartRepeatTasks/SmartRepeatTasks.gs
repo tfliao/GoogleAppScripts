@@ -32,7 +32,7 @@ function Prepare()
     Logger.log(`Sheet[${defaultSheetName}] created`);
   }
 
-  const ColumnNames = ["ErrorMessage", "Title", "Date", "Description", "Recreate interval", "Features", "Event Id"];
+  const ColumnNames = ["ErrorMessage", "Title", "Date", "Description", "Recreate interval", "Features", "Event Id", "Last Completed Time"];
   sheet.getRange(1, 1, 1, ColumnNames.length).setValues([ColumnNames]);
 
   Logger.log('Please copy below config to new gs file');
@@ -53,7 +53,7 @@ function Run()
   for (i=0;i<data.length;i ++)
   {
     var row = data[i];
-    // 狀態	標題	日期	說明	再生間隔	忽略星期	事件-ID 額外功能
+    // 狀態	標題	日期	說明	再生間隔	忽略星期	事件-ID 額外功能  前次完成時間
     var errmsg = row[0];
     var title  = row[1];
     var date   = row[2];
@@ -79,7 +79,7 @@ function Run()
     features = ParseFeatures(features);
     if ('error' in features) {
       error_msg = features['error'].join('\n');
-      sheet.getRange(i+2, 1).setValue(error_msg);
+      SetValueInCell(sheet, i, 1, error_msg);
       Logger.log(`> Error when parsing features, err: ${error_msg}`);
       continue;
     }
@@ -94,13 +94,16 @@ function Run()
       try {
         if (task === null)
           date = EvaluateNextDate(date,'0 day',features);
-        else // completed task
+        else
+        { // completed task
+          SetValueInCell(sheet, i, 8, task.completed); // 前次完成時間
           date = EvaluateNextDate(task.completed,period,features);
+        }
       }
       catch (error)
       {
         Logger.log(`> Process record at row${i+1} failed: ${error.message}`);
-        sheet.getRange(i+2, 1).setValue(`error ${error.message}`);
+        SetValueInCell(sheet, i, 1, `error ${error.message}`);
         continue;
       }
 
@@ -117,13 +120,13 @@ function Run()
       Logger.log(`> Adding task ${tr.title} @ ${tr.due}`);
       try {
         resp = Tasks.Tasks.insert(tr, tasklistId);
-        sheet.getRange(i+2, 7).setValue(resp.id);
+        SetValueInCell(sheet, i, 7, resp.id);
         Logger.log(`> success, id: ${resp.id}`);
       }
       catch (error)
       {
         Logger.log(`> failed, [${tr.title}, ${tr.notes}, ${tr.due}], error: ${error.message}`);
-        sheet.getRange(i+1, 1).setValue(`error ${error.message}`);
+        SetValueInCell(sheet, i, 1, `error ${error.message}`);
         continue;
       }
     }
@@ -131,6 +134,12 @@ function Run()
 }
 
 // helpers 
+
+function SetValueInCell(sheet, data_row, col, value)
+{
+  const data_row_offset = 2; // header + 1-based index
+  sheet.getRange(data_row + data_row_offset, col).setValue(value);
+}
 
 function GetTask(taskid)
 {
