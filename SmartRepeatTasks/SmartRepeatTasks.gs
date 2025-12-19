@@ -1,9 +1,52 @@
-const tasklistId = '<tasklistId>'; 
+// Deployment 
+function Prepare()
+{
+  const defaultTasklistName = 'SmartRepeatTasks';
+  const defaultSheetName = 'SmartRepeatTasks';
 
+  const taskLists = Tasks.Tasklists.list().items;
+  var tasklist = null;
+
+  if (taskLists && taskLists.length > 0) {
+    for (let i = 0; i < taskLists.length; i++) {
+      if (taskLists[i].title === defaultTasklistName) {
+        tasklist = taskLists[i];
+      }
+    }
+  }
+
+  if (tasklist) {
+    Logger.log(`Tasklist[${defaultTasklistName}] already exists, skip creation`);
+  } else {
+    const newTaskList = { title: defaultTasklistName };
+    tasklist = Tasks.Tasklists.insert(newTaskList);
+    Logger.log(`Tasklist[${defaultTasklistName}] created, id: ${tasklist.id}`);
+  }
+  
+  var spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = spreadsheet.getSheetByName(defaultSheetName);
+  if (sheet) {
+    Logger.log(`Sheet[${defaultSheetName}] already exists, skip creation`);
+  } else {
+    sheet = spreadsheet.insertSheet(defaultSheetName);
+    Logger.log(`Sheet[${defaultSheetName}] created`);
+  }
+
+  const ColumnNames = ["ErrorMessage", "Title", "Date", "Description", "Recreate interval", "Features", "Event Id"];
+  sheet.getRange(1, 1, 1, ColumnNames.length).setValues([ColumnNames]);
+
+  Logger.log('Please copy below config to new gs file');
+  Logger.log('');
+
+  Logger.log(`const tasklistId = "${tasklist.id}";`);
+  Logger.log(`const sheetName = "${defaultSheetName}";`);
+}
+
+// Trigger
 function Run()
 {
   var spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
-  var sheet = spreadsheet.getSheetByName('auto-regen-task')
+  var sheet = spreadsheet.getSheetByName(sheetName)
   var range = sheet.getRange("A2:G999");
   var data = range.getValues();
 
@@ -41,7 +84,6 @@ function Run()
       continue;
     }
 
-    // TODO: if task id exists => check if the task complete
     task = GetTask(taskid);
     if (task != null && task.status != 'completed')
     {
@@ -110,7 +152,7 @@ function EvaluateNextDate(base, offset, features)
   const regex = /(\d+)[,\s*](day|days|week|weeks|month|months)/i;
   const match = offset.match(regex);
   if (!match)
-    throw new Error("offset 格式錯誤")
+    throw new Error("offset format error")
 
   const n = parseInt(match[1], 10);
   var unit = match[2].toLowerCase();
@@ -162,7 +204,7 @@ function ParseFeatures(feature_str)
 
   lines.forEach(line => {
     const trimmed = line.trim();
-    if (!trimmed) return; // 跳過空行
+    if (!trimmed) return; // skip empty line
 
     if (delay_match = trimmed.match(delay_regex)) {
       const begin = parseInt(delay_match[1], 10);
