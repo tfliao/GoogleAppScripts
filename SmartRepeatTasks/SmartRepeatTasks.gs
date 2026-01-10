@@ -45,7 +45,7 @@ function Prepare()
 // Trigger
 function Run()
 {
-  var sheet = ApiUtils.GetSheet(defaultSheetName);
+  var sheet = ApiUtils.GetSheet(sheetName);
   var range = sheet.getRange("A2:H999");
   var data = range.getValues();
 
