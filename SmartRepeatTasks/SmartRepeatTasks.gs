@@ -20,17 +20,15 @@ function Prepare()
   if (tasklist) {
     Logger.log(`Tasklist[${defaultTasklistName}] already exists, skip creation`);
   } else {
-    const newTaskList = { title: defaultTasklistName };
-    tasklist = Tasks.Tasklists.insert(newTaskList);
+    tasklist = ApiUtils.CreateTasklist(defaultTasklistName);
     Logger.log(`Tasklist[${defaultTasklistName}] created, id: ${tasklist.id}`);
   }
-  
-  var spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
-  var sheet = spreadsheet.getSheetByName(defaultSheetName);
+
+  var sheet = ApiUtils.GetSheet(defaultSheetName);
   if (sheet) {
     Logger.log(`Sheet[${defaultSheetName}] already exists, skip creation`);
   } else {
-    sheet = spreadsheet.insertSheet(defaultSheetName);
+    sheet = ApiUtils.CreateSheet(defaultSheetName);
     Logger.log(`Sheet[${defaultSheetName}] created`);
   }
 
@@ -47,8 +45,7 @@ function Prepare()
 // Trigger
 function Run()
 {
-  var spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
-  var sheet = spreadsheet.getSheetByName(sheetName)
+  var sheet = ApiUtils.GetSheet(defaultSheetName);
   var range = sheet.getRange("A2:H999");
   var data = range.getValues();
 
@@ -89,7 +86,7 @@ function Run()
       continue;
     }
 
-    task = GetTask(taskid);
+    task = ApiUtils.GetTask(tasklistId, taskid);
     if (task != null && task.status != 'completed')
     {
       Logger.log(`> Task[${task.id}] is active`);
@@ -138,7 +135,7 @@ function Run()
 
       Logger.log(`> Adding task ${tr.title} @ ${tr.due}`);
       try {
-        resp = Tasks.Tasks.insert(tr, tasklistId);
+        resp = ApiUtils.AddTask(tasklistId, tr);
         ApiUtils.SetValueInCell(sheet, i, 7, resp.id);
         Logger.log(`> success, id: ${resp.id}`);
       }
@@ -153,20 +150,6 @@ function Run()
 }
 
 // helpers 
-function GetTask(taskid)
-{
-  try {
-    if (taskid == '') return null;
-    
-    task = Tasks.Tasks.get(tasklistId, taskid);
-    if (task == undefined) return null;
-    return task;
-  }
-  catch
-  {
-    return null;
-  }
-}
 
 function EvaluateNextDate(base, offset, features)
 {
