@@ -7,6 +7,8 @@ function Prepare()
   const taskLists = Tasks.Tasklists.list().items;
   var tasklist = null;
 
+  ApiUtils.SetDataOffsets(1, 1);
+
   if (taskLists && taskLists.length > 0) {
     for (let i = 0; i < taskLists.length; i++) {
       if (taskLists[i].title === defaultTasklistName) {
@@ -32,8 +34,8 @@ function Prepare()
     Logger.log(`Sheet[${defaultSheetName}] created`);
   }
 
-  const ColumnNames = ["ErrorMessage", "Title", "Date", "Description", "Recreate interval", "Features", "Event Id", "Last Completed Time"];
-  sheet.getRange(1, 1, 1, ColumnNames.length).setValues([ColumnNames]);
+  const ColumnNames = ["ErrorMessage", "Title", "Date", "Description", "Recreate interval", "Features", "Event Id"];
+  ApiUtils.SetValuesInCell(sheet, 0, 0, [ColumnNames]);
 
   Logger.log('Please copy below config to new gs file');
   Logger.log('');
@@ -47,8 +49,10 @@ function Run()
 {
   var spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
   var sheet = spreadsheet.getSheetByName(sheetName)
-  var range = sheet.getRange("A2:G999");
+  var range = sheet.getRange("A2:H999");
   var data = range.getValues();
+
+  ApiUtils.SetDataOffsets(2, 1);
 
   for (i=0;i<data.length;i ++)
   {
@@ -61,6 +65,7 @@ function Run()
     var period = row[4];
     var features = row[5];
     var taskid = row[6];
+    var last_complete = row[7];
     
     if (title == '')
     {
@@ -79,7 +84,7 @@ function Run()
     features = ParseFeatures(features);
     if ('error' in features) {
       error_msg = features['error'].join('\n');
-      SetValueInCell(sheet, i, 1, error_msg);
+      ApiUtils.SetValueInCell(sheet, i, 1, error_msg);
       Logger.log(`> Error when parsing features, err: ${error_msg}`);
       continue;
     }
@@ -96,14 +101,28 @@ function Run()
           date = EvaluateNextDate(date,'0 day',features);
         else
         { // completed task
-          SetValueInCell(sheet, i, 8, task.completed); // 前次完成時間
+          ApiUtils.SetValueInCell(sheet, i, 8, task.completed); // 前次完成時間
+          if (last_complete != "")
+          {
+            try{
+            let prev_date = new Date(last_complete.split('T')[0]);
+            let this_date = new Date(task.completed.split('T')[0]);
+            let diff_ts = this_date.getTime() - prev_date.getTime();
+            ApiUtils.SetValueInCell(sheet, i, 9, diff_ts / (1000 * 60 * 60 * 24)); // 完成間距
+            }
+            catch(error)
+            {
+              Logger.log(`new feature failed, error: ${error.message}`);
+            }
+          }
+
           date = EvaluateNextDate(task.completed,period,features);
         }
       }
       catch (error)
       {
         Logger.log(`> Process record at row${i+1} failed: ${error.message}`);
-        SetValueInCell(sheet, i, 1, `error ${error.message}`);
+        ApiUtils.SetValueInCell(sheet, i, 1, `error ${error.message}`);
         continue;
       }
 
@@ -120,13 +139,13 @@ function Run()
       Logger.log(`> Adding task ${tr.title} @ ${tr.due}`);
       try {
         resp = Tasks.Tasks.insert(tr, tasklistId);
-        SetValueInCell(sheet, i, 7, resp.id);
+        ApiUtils.SetValueInCell(sheet, i, 7, resp.id);
         Logger.log(`> success, id: ${resp.id}`);
       }
       catch (error)
       {
         Logger.log(`> failed, [${tr.title}, ${tr.notes}, ${tr.due}], error: ${error.message}`);
-        SetValueInCell(sheet, i, 1, `error ${error.message}`);
+        ApiUtils.SetValueInCell(sheet, i, 1, `error ${error.message}`);
         continue;
       }
     }
@@ -134,13 +153,6 @@ function Run()
 }
 
 // helpers 
-
-function SetValueInCell(sheet, data_row, col, value)
-{
-  const data_row_offset = 2; // header + 1-based index
-  sheet.getRange(data_row + data_row_offset, col).setValue(value);
-}
-
 function GetTask(taskid)
 {
   try {
