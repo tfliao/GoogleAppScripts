@@ -81,7 +81,7 @@ function Run()
     features = ParseFeatures(features);
     if ('error' in features) {
       error_msg = features['error'].join('\n');
-      ApiUtils.SetValueInCell(sheet, i, 1, error_msg);
+      ApiUtils.SetValueInCell(sheet, i, 0, error_msg);
       Logger.log(`> Error when parsing features, err: ${error_msg}`);
       continue;
     }
@@ -98,14 +98,14 @@ function Run()
           date = EvaluateNextDate(date,'0 day',features);
         else
         { // completed task
-          ApiUtils.SetValueInCell(sheet, i, 8, task.completed); // 前次完成時間
+          ApiUtils.SetValueInCell(sheet, i, 7, task.completed); // 前次完成時間
           if (last_complete != "")
           {
             try{
             let prev_date = new Date(last_complete.split('T')[0]);
             let this_date = new Date(task.completed.split('T')[0]);
             let diff_ts = this_date.getTime() - prev_date.getTime();
-            ApiUtils.SetValueInCell(sheet, i, 9, diff_ts / (1000 * 60 * 60 * 24)); // 完成間距
+            ApiUtils.SetValueInCell(sheet, i, 8, diff_ts / (1000 * 60 * 60 * 24)); // 完成間距
             }
             catch(error)
             {
@@ -119,7 +119,7 @@ function Run()
       catch (error)
       {
         Logger.log(`> Process record at row${i+1} failed: ${error.message}`);
-        ApiUtils.SetValueInCell(sheet, i, 1, `error ${error.message}`);
+        ApiUtils.SetValueInCell(sheet, i, 0, `error ${error.message}`);
         continue;
       }
 
@@ -136,13 +136,13 @@ function Run()
       Logger.log(`> Adding task ${tr.title} @ ${tr.due}`);
       try {
         resp = ApiUtils.AddTask(tasklistId, tr);
-        ApiUtils.SetValueInCell(sheet, i, 7, resp.id);
+        ApiUtils.SetValueInCell(sheet, i, 6, resp.id);
         Logger.log(`> success, id: ${resp.id}`);
       }
       catch (error)
       {
         Logger.log(`> failed, [${tr.title}, ${tr.notes}, ${tr.due}], error: ${error.message}`);
-        ApiUtils.SetValueInCell(sheet, i, 1, `error ${error.message}`);
+        ApiUtils.SetValueInCell(sheet, i, 0, `error ${error.message}`);
         continue;
       }
     }
