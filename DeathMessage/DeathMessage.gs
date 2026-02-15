@@ -1,9 +1,12 @@
 function run()
 {
+  const key_last_checkin = 'last_checkin';
   var spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
   ConfigUtils.Init(spreadsheet);
   if (_init(spreadsheet))
   {
+    ConfigUtils.SetValue(key_last_checkin, new Date().toISOString());
+    ConfigUtils.Sync();
     Logger.log("Initialization completed.");
     return;
   }
@@ -31,11 +34,6 @@ function _init(spreadsheet)
   is_init = _check_or_create_sheet(key_sn_messages, default_sn_message, message_header) || is_init;
 
   is_init = _check_or_create_task(key_tasklist_id, key_task_id, default_tasklist_name, default_taskname) || is_init;
-  if (is_init)
-  {
-    ConfigUtils.Sync();
-  }
-
   return is_init;
 }
 
@@ -55,25 +53,50 @@ function _check_or_create_sheet(config_key, default_config_value, sheet_header)
   return false;
 }
 
+
 function _check_or_create_task(tasklist_id_key, task_id_key, default_tasklist_name, default_taskname)
 {
   var changed = false;
+
   var tasklistid = ConfigUtils.GetValue(tasklist_id_key);
-  if (tasklistid == null)
+  if (tasklistid == null || !ApiUtils.CheckTaskList(tasklistid))
   {
     var tasklist = ApiUtils.CreateTasklist(default_tasklist_name);
     tasklistid = tasklist.id;
     ConfigUtils.SetValue(tasklist_id_key, tasklistid);
     changed = true;
   }
+
   var taskid = ConfigUtils.GetValue(task_id_key);
-  if (taskid == null || ApiUtils.GetTask(tasklistid, taskid) == null)
+  var task = null;
+  if (taskid == null ||
+    (task = ApiUtils.GetTask(tasklistid, taskid)) == null ||
+    task.deleted == true)
   {
-    var task = { title: default_taskname };
-    task = Tasks.Tasks.insert(task, tasklistid);
-    taskid = task.id;
-    ConfigUtils.SetValue(task_id_key, taskid);
+    task = ApiUtils.AddTask(tasklistid, {title: default_taskname});
+    _reschedule_task(tasklistid, task.id);
+    ConfigUtils.SetValue(task_id_key, task.id);
     changed = true;
   }
   return changed;
+}
+
+function _reschedule_task(tasklistid, taskid)
+{
+  var task = ApiUtils.GetTask(tasklistid, taskid);
+  if (task == null)
+  {
+    Logger.log(`> Task[${taskid}] not found, skip rescheduling`);
+    throw new Error(`Task[${taskid}] not found`);
+  }
+
+  const tz = Session.getScriptTimeZone();
+  var last_complete = task.completed != undefined ? new Date(task.completed) : new Date();
+  last_complete.setDate(last_complete.getDate() + 1);
+  var new_due = Utilities.formatDate(last_complete, tz, "yyyy-MM-dd");
+
+  task.status = 'needsAction';
+  task.due = new Date(new_due).toISOString();
+
+  ApiUtils.UpdateTask(tasklistid, taskid, task);
 }

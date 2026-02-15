@@ -46,6 +46,20 @@ const ApiUtils = {
     return Tasks.Tasklists.insert(newTaskList);
   },
 
+  CheckTaskList(tasklistId)
+  {
+    try {
+      if (tasklistId == '') return false;
+      tasklist = Tasks.Tasklists.get(tasklistId);
+      if (tasklist == undefined) return false;
+      return true;
+    }
+    catch
+    {
+      return false;
+    }
+  },
+
   GetTask(tasklistId, taskid)
   {
     try {
@@ -66,4 +80,9 @@ const ApiUtils = {
   {
     return Tasks.Tasks.insert(taskRecord, tasklistId);
   },
+
+  UpdateTask(tasklistId, taskid, taskRecord)
+  {
+    return Tasks.Tasks.update(taskRecord, tasklistId, taskid);
+  }
 }
