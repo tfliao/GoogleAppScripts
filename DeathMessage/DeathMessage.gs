@@ -1,4 +1,5 @@
 const key_last_checkin = 'last_checkin';
+const key_last_notify = 'last_notify';
 const key_sn_history = 'sn_history';
 const key_sn_messages = 'sn_message';
 const key_tasklist_id = 'tasklist_id';
@@ -24,18 +25,20 @@ const default_taskname = '[DM] daily checkin';
 
 function run()
 {
-  var spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
-  ConfigUtils.Init(spreadsheet);
+  ConfigUtils.Init();
   if (_init())
   {
     ConfigUtils.SetValue(key_last_checkin, _to_localtime(new Date()));
     ConfigUtils.Sync();
     Logger.log("Initialization completed.");
-    return;
   }
-  Logger.log("Checking daily checkin status");
-  _update_checkin();
-  _count_missed_checkin();
+  else
+  {
+    Logger.log("Checking daily checkin status");
+    _update_checkin();
+    _count_missed_checkin();
+    ConfigUtils.Sync();
+  }
 }
 
 function _update_checkin()
@@ -54,6 +57,58 @@ function _update_checkin()
     _reschedule_task(tasklistid, taskid);
     ConfigUtils.Sync();
     return;
+  }
+}
+
+function _count_missed_checkin()
+{
+  var current_time = _to_localtime(new Date());
+  var last_checkin = ConfigUtils.GetValue(key_last_checkin, current_time);
+
+  let prev_date = new Date(last_checkin);
+  let this_date = new Date(current_time);
+  let diff_ts = this_date.getTime() - prev_date.getTime();
+  let days_passed = diff_ts / (1000 * 60 * 60 * 24);
+  let last_notify = ConfigUtils.GetValue(key_last_notify, 0);
+
+  Logger.log(`> ${Math.floor(days_passed)} days since last checkin.`);
+
+  if (days_passed >= last_notify + 1)
+  {
+    Logger.log(`> It's been ${Math.floor(days_passed)} days since last checkin, send notification if needed.`);
+    _send_notification(last_notify, days_passed);
+  }
+  ConfigUtils.SetValue(key_last_notify, Math.floor(days_passed));
+}
+
+function _send_notification(from_day, to_day)
+{
+  const owner = Session.getEffectiveUser().getEmail();
+  var spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = spreadsheet.getSheetByName(ConfigUtils.GetValue(key_sn_messages));
+  var messages = sheet.getRange(2, 1, sheet.getLastRow() - 1, sheet.getLastColumn()).getValues();
+  for (var i = 0; i < messages.length; i++)
+  {
+    var record = messages[i];
+    var enabled = record[0] != "";
+    var notify_after = record[1];
+    var recipients = record[2];
+    var title = record[3];
+    var body = record[4];
+
+    if (enabled && notify_after > from_day && notify_after <= to_day)
+    {
+      Logger.log(`> Send notification to ${recipients} with title: ${title}`);
+      MailApp.sendEmail(
+        owner,
+        title,
+        body,
+        {
+          name: "DM System",
+          bcc: recipients
+        }
+      );
+    }
   }
 }
 
