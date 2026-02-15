@@ -1,43 +1,73 @@
+const key_last_checkin = 'last_checkin';
+const key_sn_history = 'sn_history';
+const key_sn_messages = 'sn_message';
+const key_tasklist_id = 'tasklist_id';
+const key_task_id = 'task_id';
+
+const default_sn_history = 'CheckIn History';
+const default_sn_message = 'Death Message';
+const history_header = ['checkin time'];
+const message_header = ['enabled', 'notify after', 'recipients', 'title', 'body'];
+const sample_mail_body = `Hi,
+
+This is an auto mail from DeathMessage.
+
+It's been over 24hrs since you last checkin in.
+If you are still alive, please go to checkin now.
+
+Sincerely,
+DM System`;
+const message_sample = ['TRUE', 1, '', '[DM] checkin reminder', sample_mail_body];
+
+const default_tasklist_name = 'DM checkin';
+const default_taskname = '[DM] daily checkin';
+
 function run()
 {
-  const key_last_checkin = 'last_checkin';
   var spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
   ConfigUtils.Init(spreadsheet);
-  if (_init(spreadsheet))
+  if (_init())
   {
-    ConfigUtils.SetValue(key_last_checkin, new Date().toISOString());
+    ConfigUtils.SetValue(key_last_checkin, _to_localtime(new Date()));
     ConfigUtils.Sync();
     Logger.log("Initialization completed.");
     return;
   }
   Logger.log("Checking daily checkin status");
-
+  _update_checkin();
+  _count_missed_checkin();
 }
 
-function _init(spreadsheet)
+function _update_checkin()
 {
-  const key_sn_history = 'sn_history';
-  const key_sn_messages = 'sn_message';
-  const default_sn_history = 'CheckIn History';
-  const default_sn_message = 'Death Message';
+  const tasklistid = ConfigUtils.GetValue(key_tasklist_id);
+  const taskid = ConfigUtils.GetValue(key_task_id);
+  var task = ApiUtils.GetTask(tasklistid, taskid);
+  if (task.completed != undefined)
+  {
+    Logger.log(`> Task[${taskid}] is completed, update last checkin time and reschedule next checkin.`);
+    var localtime = _to_localtime(task.completed);
+    var spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
+    var sheet = spreadsheet.getSheetByName(ConfigUtils.GetValue(key_sn_history));
+    ApiUtils.InsertValues(sheet, 0, 0, [[localtime]]);
+    ConfigUtils.SetValue(key_last_checkin, localtime);
+    _reschedule_task(tasklistid, taskid);
+    ConfigUtils.Sync();
+    return;
+  }
+}
 
-  const history_header = ['checkin time'];
-  const message_header = ['enabled', 'notify after', 'recipients', 'title', 'body'];
-
-  const key_tasklist_id = 'tasklist_id';
-  const key_task_id = 'task_id';
-  const default_tasklist_name = 'DM checkin';
-  const default_taskname = '[DM] daily checkin';
-
+function _init()
+{
   var is_init = false;
   is_init = _check_or_create_sheet(key_sn_history, default_sn_history, history_header) || is_init;
-  is_init = _check_or_create_sheet(key_sn_messages, default_sn_message, message_header) || is_init;
+  is_init = _check_or_create_sheet(key_sn_messages, default_sn_message, message_header, [message_sample]) || is_init;
 
   is_init = _check_or_create_task(key_tasklist_id, key_task_id, default_tasklist_name, default_taskname) || is_init;
   return is_init;
 }
 
-function _check_or_create_sheet(config_key, default_config_value, sheet_header)
+function _check_or_create_sheet(config_key, default_config_value, sheet_header, sample_records = null)
 {
   var spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
   var sn = ConfigUtils.GetValue(config_key, default_config_value);
@@ -47,7 +77,11 @@ function _check_or_create_sheet(config_key, default_config_value, sheet_header)
     ApiUtils.CreateSheet(sn);
     ConfigUtils.SetValue(config_key, sn);
     sheet = spreadsheet.getSheetByName(sn);
-    ApiUtils.SetValuesInCell(sheet, 1, 1, [sheet_header], font='bold', row_offset=0, col_offset=0);
+    ApiUtils.SetValuesInCell(sheet, 0, 0, [sheet_header], font='bold', row_offset=1, col_offset=1);
+    if (sample_records != null)
+    {
+      ApiUtils.SetValuesInCell(sheet, 0, 0, sample_records);
+    }
     return true;
   }
   return false;
@@ -97,6 +131,14 @@ function _reschedule_task(tasklistid, taskid)
 
   task.status = 'needsAction';
   task.due = new Date(new_due).toISOString();
+  task.completed = undefined;
 
   ApiUtils.UpdateTask(tasklistid, taskid, task);
+}
+
+function _to_localtime(datetime)
+{
+  const tz = Session.getScriptTimeZone();
+  var local_time = new Date(datetime);
+  return Utilities.formatDate(local_time, tz, "yyyy-MM-dd HH:mm:ss");
 }
