@@ -1,12 +1,12 @@
-const DbUtils = {
-  _sheetname: '_database',
+const ConfigUtils = {
+  _sheetname: '_config',
   _spreadsheet: null,
   _sheet: null,
   _config: null,
-  Init(spreadsheet, sheetname = null)
+  Init(sheetname = null)
   {
     this._sheetname = sheetname ?? this._sheetname;
-    this._spreadsheet = spreadsheet;
+    this._spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
     this._sheet = this._spreadsheet.getSheetByName(this._sheetname);
     if (this._sheet == null)
     {

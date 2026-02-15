@@ -28,18 +28,44 @@ const ApiUtils = {
     sheet.getRange(data_row + row_offset, data_col + col_offset).setValue(value);
   },
 
-  SetValuesInCell(sheet, data_row, data_col, values, row_offset = null, col_offset = null)
+  SetValuesInCell(sheet, data_row, data_col, values, font = null, row_offset = null, col_offset = null)
   {
     row_offset = row_offset ?? this.data_row_offset;
     col_offset = col_offset ?? this.data_col_offset;
     sheet.getRange(data_row + row_offset, data_col + col_offset, values.length, values[0].length).setValues(values);
+    if (font != null)
+    {
+      sheet.getRange(data_row + row_offset, data_col + col_offset, values.length, values[0].length).setFontWeight(font);
+    }
   },
 
-  // google calendar
+  InsertValues(sheet, data_row, data_col, value, row_offset = null, col_offset = null)
+  {
+    row_offset = row_offset ?? this.data_row_offset;
+    col_offset = col_offset ?? this.data_col_offset;
+    sheet.insertRowsBefore(data_row + row_offset, values.length);
+    this.SetValuesInCell(sheet, data_row, data_col, value, row_offset = row_offset, col_offset = col_offset);
+  },
+
+  // google Task
   CreateTasklist(tasklistName)
   {
     const newTaskList = { title: tasklistName };
     return Tasks.Tasklists.insert(newTaskList);
+  },
+
+  CheckTaskList(tasklistId)
+  {
+    try {
+      if (tasklistId == '') return false;
+      tasklist = Tasks.Tasklists.get(tasklistId);
+      if (tasklist == undefined) return false;
+      return true;
+    }
+    catch
+    {
+      return false;
+    }
   },
 
   GetTask(tasklistId, taskid)
@@ -62,4 +88,9 @@ const ApiUtils = {
   {
     return Tasks.Tasks.insert(taskRecord, tasklistId);
   },
+
+  UpdateTask(tasklistId, taskid, taskRecord)
+  {
+    return Tasks.Tasks.update(taskRecord, tasklistId, taskid);
+  }
 }
