@@ -1,5 +1,5 @@
-const DbUtils = {
-  _sheetname: '_database',
+const ConfigUtils = {
+  _sheetname: '_config',
   _spreadsheet: null,
   _sheet: null,
   _config: null,

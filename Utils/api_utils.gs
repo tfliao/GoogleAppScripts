@@ -28,14 +28,18 @@ const ApiUtils = {
     sheet.getRange(data_row + row_offset, data_col + col_offset).setValue(value);
   },
 
-  SetValuesInCell(sheet, data_row, data_col, values, row_offset = null, col_offset = null)
+  SetValuesInCell(sheet, data_row, data_col, values, font = null, row_offset = null, col_offset = null)
   {
     row_offset = row_offset ?? this.data_row_offset;
     col_offset = col_offset ?? this.data_col_offset;
     sheet.getRange(data_row + row_offset, data_col + col_offset, values.length, values[0].length).setValues(values);
+    if (font != null)
+    {
+      sheet.getRange(data_row + row_offset, data_col + col_offset, values.length, values[0].length).setFontWeight(font);
+    }
   },
 
-  // google calendar
+  // google Task
   CreateTasklist(tasklistName)
   {
     const newTaskList = { title: tasklistName };
