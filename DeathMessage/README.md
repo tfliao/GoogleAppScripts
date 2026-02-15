@@ -24,7 +24,7 @@ Allow you to checkin every day, and send messages to others when you failed to c
     3. [optional] Rename the script file name to `DeathMessage.gs` or anything you want
 
 3. Initialize Tasklist and sheet used for this GAS
-    1. Add `Google Tasks API` from `Services` tab on the left panel
+    1. Add `Tasks`, `Gmail` from `Services` tab on the left panel
     2. Save and choose the function of `Run`
     3. You will be asking if allow this script to access your data. Choose allow in (more).
 
