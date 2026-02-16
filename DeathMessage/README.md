@@ -45,7 +45,8 @@ To prevent unwanted notifications sent, the system has below behaviors.
 
 4. Setup daily trigger
     1. Click trigger rule on left panel
-    2. Choose `Run`, `upstream`, `time trigger`, `daily`, and select any time range
+    2. Choose `Run`, `upstream`, `time trigger`, `hourly`, and select `every 8 hrs`
+        * `every 6 hrs` or `every 12 hrs` should also work, shorter time interval is meaningless.
     3. Save
 
 # Use
