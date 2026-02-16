@@ -98,9 +98,16 @@ function _count_missed_checkin()
   if (days_passed >= last_notify + 1)
   {
     Logger.log(`> It's been ${Math.floor(days_passed)} days since last checkin, send notification if needed.`);
-    _send_notification(last_notify, days_passed);
+    var notify_start = Math.floor(last_notify + 1);
+    var notify_end = notify_start;
+    _send_notification(notify_start, notify_end);
+    ConfigUtils.SetValue(key_last_notify, notify_end);
   }
-  ConfigUtils.SetValue(key_last_notify, Math.floor(days_passed));
+  if (days_passed < 1)
+  {
+    Logger.log(`> Last checkin is less than 1 day ago, reset notification status.`);
+    ConfigUtils.SetValue(key_last_notify, 0);
+  }
 }
 
 function _send_notification(from_day, to_day)
@@ -118,7 +125,7 @@ function _send_notification(from_day, to_day)
     var title = record[3];
     var body = record[4];
 
-    if (enabled && notify_after > from_day && notify_after <= to_day)
+    if (enabled && notify_after >= from_day && notify_after <= to_day)
     {
       Logger.log(`> Send notification to ${recipients} with title: ${title}`);
       MailApp.sendEmail(
