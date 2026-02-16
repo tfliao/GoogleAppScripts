@@ -1,3 +1,4 @@
+const key_service_active = 'service_active';
 const key_last_checkin = 'last_checkin';
 const key_last_notify = 'last_notify';
 const key_sn_history = 'sn_history';
@@ -36,9 +37,33 @@ function run()
   {
     Logger.log("Checking daily checkin status");
     _update_checkin();
-    _count_missed_checkin();
+    if (_service_active_check())
+    {
+      _count_missed_checkin();
+    }
+    else
+    {
+      Logger.log("> Service seems not active for a while, skip notification sending.");
+    }
+    ConfigUtils.SetValue(key_service_active, _to_localtime(new Date()));
     ConfigUtils.Sync();
   }
+}
+
+function _service_active_check()
+{
+  var current_time = _to_localtime(new Date());
+  var last_service_run = ConfigUtils.GetValue(key_service_active);
+  if (last_service_run == null)
+    return false;
+
+  let days_passed = _diff_days(last_service_run, current_time);
+  if (days_passed >= 2)
+  {
+    Logger.log(`> It's been ${Math.floor(days_passed)} days since last service run, seems the service is not active, please check your trigger settings.`);
+    return false;
+  }
+  return true;
 }
 
 function _update_checkin()
@@ -65,10 +90,7 @@ function _count_missed_checkin()
   var current_time = _to_localtime(new Date());
   var last_checkin = ConfigUtils.GetValue(key_last_checkin, current_time);
 
-  let prev_date = new Date(last_checkin);
-  let this_date = new Date(current_time);
-  let diff_ts = this_date.getTime() - prev_date.getTime();
-  let days_passed = diff_ts / (1000 * 60 * 60 * 24);
+  let days_passed = _diff_days(last_checkin, current_time);
   let last_notify = ConfigUtils.GetValue(key_last_notify, 0);
 
   Logger.log(`> ${Math.floor(days_passed)} days since last checkin.`);
@@ -196,4 +218,13 @@ function _to_localtime(datetime)
   const tz = Session.getScriptTimeZone();
   var local_time = new Date(datetime);
   return Utilities.formatDate(local_time, tz, "yyyy-MM-dd HH:mm:ss");
+}
+
+function _diff_days(date1, date2)
+{
+  let prev_date = new Date(date1);
+  let this_date = new Date(date2);
+  let diff_ts = this_date.getTime() - prev_date.getTime();
+  let days_passed = diff_ts / (1000 * 60 * 60 * 24);
+  return days_passed;
 }
