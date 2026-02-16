@@ -204,6 +204,8 @@ function _reschedule_task(tasklistid, taskid)
   const tz = Session.getScriptTimeZone();
   var last_complete = task.completed != undefined ? new Date(task.completed) : new Date();
   last_complete.setDate(last_complete.getDate() + 1);
+  var current_time = new Date();
+  last_complete = new Date(Math.max(last_complete, current_time));
   var new_due = Utilities.formatDate(last_complete, tz, "yyyy-MM-dd");
 
   task.status = 'needsAction';
