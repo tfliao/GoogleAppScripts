@@ -90,7 +90,13 @@ function _count_missed_checkin()
   var current_time = _to_localtime(new Date());
   var last_checkin = ConfigUtils.GetValue(key_last_checkin, current_time);
 
-  let days_passed = _diff_days(last_checkin, current_time);
+  var checkin_due = ApiUtils.GetTask(ConfigUtils.GetValue(key_tasklist_id), ConfigUtils.GetValue(key_task_id)).due;
+  checkin_due = new Date(new Date(checkin_due).setHours(23,59));
+  checkin_due = new Date(checkin_due.setDate(checkin_due.getDate() - 1));
+
+  last_checkin = new Date(Math.max(last_checkin, checkin_due));
+
+  let days_passed = Math.max(_diff_days(last_checkin, current_time), 0);
   let last_notify = ConfigUtils.GetValue(key_last_notify, 0);
 
   Logger.log(`> ${Math.floor(days_passed)} days since last checkin.`);
