@@ -1,3 +1,4 @@
+const key_service_active = 'service_active';
 const key_last_checkin = 'last_checkin';
 const key_last_notify = 'last_notify';
 const key_sn_history = 'sn_history';
@@ -36,9 +37,33 @@ function run()
   {
     Logger.log("Checking daily checkin status");
     _update_checkin();
-    _count_missed_checkin();
+    if (_service_active_check())
+    {
+      _count_missed_checkin();
+    }
+    else
+    {
+      Logger.log("> Service seems not active for a while, skip notification sending.");
+    }
+    ConfigUtils.SetValue(key_service_active, _to_localtime(new Date()));
     ConfigUtils.Sync();
   }
+}
+
+function _service_active_check()
+{
+  var current_time = _to_localtime(new Date());
+  var last_service_run = ConfigUtils.GetValue(key_service_active);
+  if (last_service_run == null)
+    return false;
+
+  let days_passed = _diff_days(last_service_run, current_time);
+  if (days_passed >= 2)
+  {
+    Logger.log(`> It's been ${Math.floor(days_passed)} days since last service run, seems the service is not active, please check your trigger settings.`);
+    return false;
+  }
+  return true;
 }
 
 function _update_checkin()
@@ -65,10 +90,13 @@ function _count_missed_checkin()
   var current_time = _to_localtime(new Date());
   var last_checkin = ConfigUtils.GetValue(key_last_checkin, current_time);
 
-  let prev_date = new Date(last_checkin);
-  let this_date = new Date(current_time);
-  let diff_ts = this_date.getTime() - prev_date.getTime();
-  let days_passed = diff_ts / (1000 * 60 * 60 * 24);
+  var checkin_due = ApiUtils.GetTask(ConfigUtils.GetValue(key_tasklist_id), ConfigUtils.GetValue(key_task_id)).due;
+  checkin_due = new Date(new Date(checkin_due).setHours(23,59));
+  checkin_due = new Date(checkin_due.setDate(checkin_due.getDate() - 1));
+
+  last_checkin = new Date(Math.max(last_checkin, checkin_due));
+
+  let days_passed = Math.max(_diff_days(last_checkin, current_time), 0);
   let last_notify = ConfigUtils.GetValue(key_last_notify, 0);
 
   Logger.log(`> ${Math.floor(days_passed)} days since last checkin.`);
@@ -76,9 +104,16 @@ function _count_missed_checkin()
   if (days_passed >= last_notify + 1)
   {
     Logger.log(`> It's been ${Math.floor(days_passed)} days since last checkin, send notification if needed.`);
-    _send_notification(last_notify, days_passed);
+    var notify_start = Math.floor(last_notify + 1);
+    var notify_end = notify_start;
+    _send_notification(notify_start, notify_end);
+    ConfigUtils.SetValue(key_last_notify, notify_end);
   }
-  ConfigUtils.SetValue(key_last_notify, Math.floor(days_passed));
+  if (days_passed < 1)
+  {
+    Logger.log(`> Last checkin is less than 1 day ago, reset notification status.`);
+    ConfigUtils.SetValue(key_last_notify, 0);
+  }
 }
 
 function _send_notification(from_day, to_day)
@@ -96,7 +131,7 @@ function _send_notification(from_day, to_day)
     var title = record[3];
     var body = record[4];
 
-    if (enabled && notify_after > from_day && notify_after <= to_day)
+    if (enabled && notify_after >= from_day && notify_after <= to_day)
     {
       Logger.log(`> Send notification to ${recipients} with title: ${title}`);
       MailApp.sendEmail(
@@ -182,6 +217,8 @@ function _reschedule_task(tasklistid, taskid)
   const tz = Session.getScriptTimeZone();
   var last_complete = task.completed != undefined ? new Date(task.completed) : new Date();
   last_complete.setDate(last_complete.getDate() + 1);
+  var current_time = new Date();
+  last_complete = new Date(Math.max(last_complete, current_time));
   var new_due = Utilities.formatDate(last_complete, tz, "yyyy-MM-dd");
 
   task.status = 'needsAction';
@@ -196,4 +233,13 @@ function _to_localtime(datetime)
   const tz = Session.getScriptTimeZone();
   var local_time = new Date(datetime);
   return Utilities.formatDate(local_time, tz, "yyyy-MM-dd HH:mm:ss");
+}
+
+function _diff_days(date1, date2)
+{
+  let prev_date = new Date(date1);
+  let this_date = new Date(date2);
+  let diff_ts = this_date.getTime() - prev_date.getTime();
+  let days_passed = diff_ts / (1000 * 60 * 60 * 24);
+  return days_passed;
 }
