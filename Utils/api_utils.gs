@@ -92,5 +92,54 @@ const ApiUtils = {
   UpdateTask(tasklistId, taskid, taskRecord)
   {
     return Tasks.Tasks.update(taskRecord, tasklistId, taskid);
+  },
+
+  // google calendar
+  CreateAllDayEvent(calendar, title, start_date, end_date, location, desc, color = null)
+  {
+    options = {
+      location: location,
+      description: desc
+    };
+    next_end_date = new Date(end_date);
+    next_end_date.setDate(next_end_date.getDate() + 1);
+    try
+      {
+      var event = calendar.createAllDayEvent(
+        title,
+        new Date(start_date),
+        next_end_date,
+        options);
+      if (event)
+      {
+        if (color != null) {
+          event.setColor(color);
+        }
+        return event;
+      }
+      else
+      {
+        return null;
+      }
+    }
+    catch (error)
+    {
+      Logger.log(`got exception when creating event ${title}  [${start_date}, ${end_date}]`);
+      throw error;
+    }
+  },
+
+  GetEvent(calendar, event_id)
+  {
+    try {
+      if (event_id == '') return null;
+      var event = calendar.getEventById(event_id);
+      if (event == undefined) return null;
+      return event;
+    }
+    catch
+    {
+      return null;
+    }
   }
 }
