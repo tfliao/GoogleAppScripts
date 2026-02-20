@@ -21,7 +21,7 @@ To prevent unwanted notifications sent, the system has below behaviors.
 
 * service active check (in `_service_active_check`): system keep last service run time, and skip notification sending when service inactive over 2 days. this can prevent missed checkin due to system failed to generate the checkin task.
 * daily basis notification sending (in `_count_missed_checkin`): every time the script starts, it will send notifications register on single day. Say that we have notifications registed on day 1, 2, and 3. if checkin missed for 3 days, and last notfications sent on day 1, this run will only send notification on day 2.
-* missed checkin calculation (in `_count_missed_checkin`): checkin miss days calculated by `current time - max(23:59@task due - 1 day, last checkin time)`, which should be safe enough.
+* missed checkin calculation (in `_count_missed_checkin`): checkin miss days calculated by `current time - max({last_checkin_hhmm + 4h}@task due - 1 day, last checkin time)`, which should be safe enough.
 
 
 # Deployment (might be incomplete)
