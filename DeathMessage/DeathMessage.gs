@@ -85,21 +85,31 @@ function _update_checkin()
   }
 }
 
-function _count_missed_checkin()
+function _get_referent_time()
 {
   var current_time = _to_localtime(new Date());
   var last_checkin = ConfigUtils.GetValue(key_last_checkin, current_time);
+  var h = 23, m = 59;
+  try {
+    var hms = _to_localtime(last_checkin).split(' ')[1].split(':');
+    h = Math.min(parseInt(hms[0]) + 4, 23); // 4 hr buffer, but never over midnight
+    m = parseInt(hms[1]);
+  } catch {}
 
   var checkin_due = ApiUtils.GetTask(ConfigUtils.GetValue(key_tasklist_id), ConfigUtils.GetValue(key_task_id)).due;
-  checkin_due = new Date(new Date(checkin_due).setHours(23,59));
+  checkin_due = new Date(new Date(checkin_due).setHours(h, m));
   checkin_due = new Date(checkin_due.setDate(checkin_due.getDate() - 1));
 
-  last_checkin = new Date(Math.max(last_checkin, checkin_due));
+  return new Date(Math.max(last_checkin, checkin_due));
+}
 
-  let days_passed = Math.max(_diff_days(last_checkin, current_time), 0);
+function _count_missed_checkin()
+{
+  let ref_time = _get_referent_time();
+  let days_passed = Math.max(_diff_days(ref_time, new Date()), 0);
   let last_notify = ConfigUtils.GetValue(key_last_notify, 0);
 
-  Logger.log(`> ${Math.floor(days_passed)} days since last checkin.`);
+  Logger.log(`> ${Math.floor(days_passed)} days since reference time ${new Date(ref_time)}.`);
 
   if (days_passed >= last_notify + 1)
   {
